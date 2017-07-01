@@ -7,11 +7,11 @@ easier to create new blogs/sites with similar content
 """
 
 import sys
-import datetime
+from datetime import datetime, date
 from os import listdir
 from os.path import isfile, join, isdir
 import io
-from flask import Flask, render_template, send_from_directory, request
+from flask import Flask, render_template, send_from_directory
 from flask_frozen import Freezer
 from werkzeug.contrib.atom import AtomFeed
 import jinja2
@@ -37,6 +37,7 @@ def get_content_files(section_folder, section):
         file_content = read_file(join(section_folder, f))
         file_content['meta']['url'] = f.rsplit('.', 1)[0]
         file_content['meta']['section'] = section
+        file_content['meta']['full_url'] = section + '/' + file_content['meta']['url']
         files.append(file_content)
 
     return files
@@ -147,8 +148,8 @@ def create_app(site, IS_PRODUCTION):
     @app.route('/feed.atom')
     def feed():
         feed = AtomFeed('Recent Articles',
-                        feed_url=request.url,
-                        url=request.host_url,
+                        feed_url=meta['base_url'] + 'feed.atom',
+                        url=meta['base_url'],
                         subtitle='Recent articles')
 
         posts = []
@@ -158,10 +159,22 @@ def create_app(site, IS_PRODUCTION):
             posts = posts + files
 
         for post in posts:
-            feed.add(post['meta']['title'], post['text'], content_type='html',
-                    author=meta['author'], url=post['meta']['url'], id=post['meta']['title'],
-                    updated=datetime.datetime(2017, 4, 25), published=datetime.datetime(2017, 4, 25))
-            
+            publish_date = post['meta']['date']
+            day = publish_date.today()
+            today_with_time = datetime(
+                year=day.year,
+                month=day.month,
+                day=day.day,
+            )
+
+            feed.add(post['meta']['title'], post['text'],
+                     content_type='html',
+                     author=meta['author'],
+                     url=meta['base_url'] + post['meta']['full_url'],
+                     id=post['meta']['title'],
+                     updated=today_with_time,
+                     published=today_with_time)
+
         return feed.get_response()
 
     return app
@@ -172,7 +185,7 @@ if __name__ == '__main__':
     APP = create_app(SITE, IS_PRODUCTION)
 
     if IS_PRODUCTION:
-        freezer = Freezer(APP)
-        freezer.freeze()
+        FREEZER = Freezer(APP)
+        FREEZER.freeze()
     else:
         APP.run(port=8000)
