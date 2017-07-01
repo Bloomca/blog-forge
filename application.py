@@ -61,12 +61,12 @@ def create_app(site):
 
     print sections
 
-    @app.route('/<path:section_name>/')
-    def section(section_name):
+    @app.route('/<path:section>/')
+    def section(section):
         """
         We divide all content into sections with one level deepness
         """
-        section_folder = join(directory, section_name)
+        section_folder = join(directory, section)
         files = [f for f in listdir(section_folder) if isfile(join(section_folder, f))]
         filtered_files = [f for f in files if f.endswith('.md')]
         return render_template('topic.html', sections=sections, files=filtered_files)
