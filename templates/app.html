@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="author" content="{{ meta['author'] }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('assets', filename='favicons/favicon.ico') }}">
+    <link rel="apple-touch-icon-precomposed" href="{{ url_for('assets', filename='favicons/favicon-152.png') }}">
+    <meta name="msapplication-TileColor" content="#ffffff" />
+    <meta name="msapplication-TileImage" href="{{ url_for('assets', filename='favicons/favicon-144.png') }}">
+    <link rel="apple-touch-icon-precomposed" sizes="152x152" href="{{ url_for('assets', filename='favicons/favicon-152.png') }}">
+    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="{{ url_for('assets', filename='favicons/favicon-144.png') }}">
+    <link rel="apple-touch-icon-precomposed" sizes="120x120" href="{{ url_for('assets', filename='favicons/favicon-120.png') }}">
+    <link rel="apple-touch-icon-precomposed" sizes="114x114" href="{{ url_for('assets', filename='favicons/favicon-114.png') }}">
+    <link rel="apple-touch-icon-precomposed" sizes="72x72" href="{{ url_for('assets', filename='favicons/favicon-72.png') }}">
+    <link rel="apple-touch-icon-precomposed" href="{{ url_for('assets', filename='favicons/favicon-57.png') }}">
+    <link rel="icon" href="{{ url_for('assets', filename='favicons/favicon-32.png') }}" sizes="32x32">
+    <meta property="og:site_name" content="{{ meta['page_title'] }}">
+    <meta property="og:image" content="{{ url_for('assets', filename='images/opengraph.png') }}">
+    {% block meta %}
+      <title>{{ meta['meta_title'] or meta['title'] }}</title>
+      <meta name="keywords" content="{{ meta['meta_keywords'] or meta['keywords'] }}" />
+      <meta name="description" content="{{ meta['meta_description'] or meta['description'] }}" />
+      <meta property="og:url" content="{{ meta['base_url'] + (meta['url'] or '') }}">
+      <meta property="og:title" content="{{ meta['meta_title'] or meta['title'] }}">
+      <meta property="og:description" content="{{ meta['meta_description'] or meta['description'] }}">
+    {% endblock meta %}
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('assets', filename='css/app.css') }}">
+  </head>
+  <body>
+    <div class="container-with-footer">
+      <header class="header">
+        <div class="logo">
+          <a href="/">
+            <img src="{{ url_for('assets', filename='favicons/favicon-152.png') }}" />
+            {{ meta['page_title'] }}
+          </a>
+        </div>
+        <nav role="navigation" class="menu">
+          {% block menu %}
+            <ul class="">
+              {% for section in sections %}
+                <li class="{% if section_name == section.section %}active{% endif %}">
+                  <a href="{{ url_for('section', section=section.section) }}">{{ section.title }}</a>
+                </li>
+              {% endfor %}
+            </ul>
+          {% endblock %}
+        </nav>
+      </header>
+
+      <main role="main" class="main-container content-container">
+        {% block content %}
+        {% endblock content %}
+      </main>
+
+      <footer class="footer">
+        <div class="footer-content content-container">
+          ©
+          <script>
+            var date = new Date();
+            var startingDate = 2016;
+            var renderedDate = 2016;
+            try {
+              renderedDate = date.getFullYear();
+            } catch(e) {}
+            var result = startingDate === renderedDate ? renderedDate : startingDate + '–' + renderedDate;
+            document.write(result);
+          </script>.
+          {{ meta['page_footer']|md|safe }}
+        </div>
+      </footer>
+      {% block bottom_scripts %}
+      {% endblock bottom_scripts %}
+    </div> <!-- /container -->
+  </body>
+</html>

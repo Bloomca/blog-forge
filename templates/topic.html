@@ -1,0 +1,22 @@
+{% extends "app.html" %}
+
+{% block content %}
+    <h1>
+        {{ section.title }}
+    </h1>
+    <p>
+        {{ section.subtitle|md|safe }}
+    </p>
+    <ul class="topic--links">
+        {% for link in links %}
+            <li class="topic--link-container">
+                <a href="{{ url_for('page', section=section_name, path=link.url) }}">
+                    {{ link.title }}
+                </a>
+                <div class="topic--link-subtitle">
+                    {{ link.subtitle|md|safe }}
+                </div>
+            </li>
+        {% endfor %}
+    </ul>
+{% endblock %}
