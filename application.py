@@ -7,10 +7,13 @@ easier to create new blogs/sites with similar content
 """
 
 import sys
+import datetime
 from os import listdir
 from os.path import isfile, join, isdir
 import io
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, render_template, send_from_directory, request
+from flask_frozen import Freezer
+from werkzeug.contrib.atom import AtomFeed
 import jinja2
 from markdown import markdown
 import yaml
@@ -22,6 +25,21 @@ def get_immediate_subdirectories(a_dir):
     """
     return [name for name in listdir(a_dir)
             if isdir(join(a_dir, name))]
+
+def get_content_files(section_folder, section):
+    """
+    Get all content files from directory, excluding __info.md
+    """
+    files = [f for f in listdir(section_folder) if isfile(join(section_folder, f))]
+    filtered_files = [f for f in files if f.endswith('.md') and f != '__info.md']
+    files = []
+    for f in filtered_files:
+        file_content = read_file(join(section_folder, f))
+        file_content['meta']['url'] = f.rsplit('.', 1)[0]
+        file_content['meta']['section'] = section
+        files.append(file_content)
+
+    return files
 
 def read_file(file_path):
     """
@@ -101,21 +119,15 @@ def create_app(site):
         We divide all content into sections with one level deepness
         """
         section_folder = join(directory, section)
-        files = [f for f in listdir(section_folder) if isfile(join(section_folder, f))]
-        filtered_files = [f for f in files if f.endswith('.md') and f != '__info.md']
-        links = []
-        for f in filtered_files:
-            page_meta = read_file(join(section_folder, f))['meta']
-            page_meta['url'] = f.rsplit('.', 1)[0]
-            links.append(page_meta)
-        
+        files = get_content_files(section_folder, section)
+        links = [f['meta'] for f in files]
         section_file = read_file(join(section_folder, '__info.md'))
         return render_template(
             'topic.html',
             section_name=section,
             section=section_file['meta'],
             links=links,
-            sections=sections, files=filtered_files, meta=meta)
+            sections=sections, meta=meta)
 
     @app.route('/<path:section>/<path:path>/')
     def page(section, path):
@@ -129,12 +141,34 @@ def create_app(site):
             section_name=section,
             sections=sections, meta=page_meta)
 
-    app.run(port=8000)
+    @app.route('/feed.atom')
+    def feed():
+        feed = AtomFeed('Recent Articles',
+                        feed_url=request.url,
+                        url=request.host_url,
+                        subtitle='Recent articles')
+
+        posts = []
+        for section_dir in section_dirs:
+            section_folder = join(directory, section_dir)
+            files = get_content_files(section_folder, section_dir)
+            posts = posts + files
+
+        for post in posts:
+            feed.add(post['meta']['title'], post['text'], content_type='html',
+                    author=meta['author'], url=post['meta']['url'], id=post['meta']['title'],
+                    updated=datetime.datetime(2017, 4, 25), published=datetime.datetime(2017, 4, 25))
+            
+        return feed.get_response()
+
+    return app
 
 if __name__ == '__main__':
     site = sys.argv[1]
-    create_app(site)
+    app = create_app(site)
 
-    # if len(sys.argv) > 1 and sys.argv[1] == "build":
-    #     freezer.freeze()
-    # app.run(port=8000)
+    if len(sys.argv) > 2 and sys.argv[2] == "build":
+        freezer = Freezer(app)
+        freezer.freeze()
+    else:
+        app.run(port=8000)
