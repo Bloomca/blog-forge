@@ -13,6 +13,8 @@ import io
 from flask import Flask, render_template, send_from_directory
 import jinja2
 from markdown import markdown
+import yaml
+
 
 def get_immediate_subdirectories(a_dir):
     """
@@ -20,6 +22,18 @@ def get_immediate_subdirectories(a_dir):
     """
     return [name for name in listdir(a_dir)
             if isdir(join(a_dir, name))]
+
+def read_file(file_path):
+    """
+    read and parse md file
+    outputting content and yaml config
+    """
+    # needed to parse cyrillic correctly
+    with io.open(file_path, 'r', encoding='utf-8') as f:
+        raw_file = f.read()
+        parsed_article = raw_file.split('\n\n', 1)
+        article = markdown(parsed_article[1])
+        return {'meta': yaml.load(parsed_article[0]), 'text': article}
 
 def create_app(site):
     """
@@ -29,8 +43,6 @@ def create_app(site):
     config = {}
     config['DEBUG'] = True
 
-    print sys.path[0]
-
     app = Flask(__name__)
     app.config.from_object(config)
 
@@ -39,6 +51,12 @@ def create_app(site):
         jinja2.FileSystemLoader(join('sites', site, 'templates')),
     ])
     app.jinja_loader = my_loader
+
+    @app.template_filter('md')
+    def md(text):
+        """Parse text as markdown"""
+        return markdown(text)
+
 
     @app.route('/assets/<path:filename>')
     def assets(filename):
@@ -57,10 +75,26 @@ def create_app(site):
         raise Exception
 
     directory = join('sites', site, 'pages')
-    sections = get_immediate_subdirectories(directory)
+    section_dirs = get_immediate_subdirectories(directory)
+    sections = []
+    for section_dir in section_dirs:
+        info = read_file(join(directory, section_dir, '__info.md'))['meta']
+        section_info = {'title': info['title'], 'section': section_dir}
+        sections.append(section_info)
 
-    print sections
+    # we need to merge meta in each section & page, so we read it here
+    file_path = join('sites', site, 'pages', '__info.md')
+    index_article = read_file(file_path)
+    meta = index_article['meta']
 
+    @app.route('/')
+    def index():
+        return render_template(
+            'article.html',
+            article=index_article['text'],
+            section_name='',
+            sections=sections, meta=meta)
+            
     @app.route('/<path:section>/')
     def section(section):
         """
@@ -68,20 +102,32 @@ def create_app(site):
         """
         section_folder = join(directory, section)
         files = [f for f in listdir(section_folder) if isfile(join(section_folder, f))]
-        filtered_files = [f for f in files if f.endswith('.md')]
-        return render_template('topic.html', sections=sections, files=filtered_files)
-
-    @app.route('/')
-    def hello_world():
-        return '\n\n'.join(sections)
+        filtered_files = [f for f in files if f.endswith('.md') and f != '__info.md']
+        links = []
+        for f in filtered_files:
+            page_meta = read_file(join(section_folder, f))['meta']
+            page_meta['url'] = f.rsplit('.', 1)[0]
+            links.append(page_meta)
+        
+        section_file = read_file(join(section_folder, '__info.md'))
+        return render_template(
+            'topic.html',
+            section_name=section,
+            section=section_file['meta'],
+            links=links,
+            sections=sections, files=filtered_files, meta=meta)
 
     @app.route('/<path:section>/<path:path>/')
     def page(section, path):
         file_path = join('sites', site, 'pages', section, path + '.md')
-        # needed to correctly parse cyrillic
-        with io.open(file_path, 'r', encoding='utf-8') as f:
-            article = markdown(f.read())
-            return render_template('article.html', article=article, sections=sections)
+        article = read_file(file_path)
+        page_meta = meta.copy()
+        page_meta.update(article['meta'])
+        return render_template(
+            'article.html',
+            article=article['text'],
+            section_name=section,
+            sections=sections, meta=page_meta)
 
     app.run(port=8000)
 
