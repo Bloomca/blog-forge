@@ -53,7 +53,7 @@ def read_file(file_path):
         article = markdown(parsed_article[1])
         return {'meta': yaml.load(parsed_article[0]), 'text': article}
 
-def create_app(site):
+def create_app(site, IS_PRODUCTION):
     """
     create application function – because we support several sites
     we need to know which one we are using right now
@@ -65,13 +65,15 @@ def create_app(site):
     app.config.from_object(config)
 
     my_loader = jinja2.ChoiceLoader([
-        app.jinja_loader,
         jinja2.FileSystemLoader(join('sites', site, 'templates')),
+        app.jinja_loader,
     ])
     app.jinja_loader = my_loader
 
     @app.template_filter('md')
     def md(text):
+        if text is None:
+            text = ''
         """Parse text as markdown"""
         return markdown(text)
 
@@ -104,6 +106,7 @@ def create_app(site):
     file_path = join('sites', site, 'pages', '__info.md')
     index_article = read_file(file_path)
     meta = index_article['meta']
+    meta['production'] = IS_PRODUCTION
 
     @app.route('/')
     def index():
@@ -164,11 +167,12 @@ def create_app(site):
     return app
 
 if __name__ == '__main__':
-    site = sys.argv[1]
-    app = create_app(site)
+    SITE = sys.argv[1]
+    IS_PRODUCTION = len(sys.argv) > 2 and sys.argv[2] == 'build'
+    APP = create_app(SITE, IS_PRODUCTION)
 
-    if len(sys.argv) > 2 and sys.argv[2] == "build":
-        freezer = Freezer(app)
+    if IS_PRODUCTION:
+        freezer = Freezer(APP)
         freezer.freeze()
     else:
-        app.run(port=8000)
+        APP.run(port=8000)
