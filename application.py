@@ -7,8 +7,8 @@ easier to create new blogs/sites with similar content
 """
 
 import sys
-from datetime import datetime, date
-from os import listdir
+from datetime import datetime
+from os import listdir, walk
 from os.path import isfile, join, isdir
 import io
 from flask import Flask, render_template, send_from_directory
@@ -17,7 +17,6 @@ from werkzeug.contrib.atom import AtomFeed
 import jinja2
 from markdown import markdown
 import yaml
-
 
 def get_immediate_subdirectories(a_dir):
     """
@@ -40,7 +39,7 @@ def get_content_files(section_folder, section):
         file_content['meta']['full_url'] = section + '/' + file_content['meta']['url']
         files.append(file_content)
 
-    return files
+    return sorted(files, key=lambda file: file['meta']['date'], reverse=True)
 
 def read_file(file_path):
     """
@@ -51,7 +50,7 @@ def read_file(file_path):
     with io.open(file_path, 'r', encoding='utf-8') as f:
         raw_file = f.read()
         parsed_article = raw_file.split('\n\n', 1)
-        article = markdown(parsed_article[1])
+        article = markdown(parsed_article[1], extensions=['codehilite'])
         return {'meta': yaml.load(parsed_article[0]), 'text': article}
 
 def create_app(site, IS_PRODUCTION):
@@ -158,7 +157,9 @@ def create_app(site, IS_PRODUCTION):
             files = get_content_files(section_folder, section_dir)
             posts = posts + files
 
-        for post in posts:
+        sorted_ports = sorted(posts, key=lambda file: file['meta']['date'], reverse=True)
+
+        for post in sorted_ports:
             publish_date = post['meta']['date']
             day = publish_date.today()
             today_with_time = datetime(
@@ -188,4 +189,12 @@ if __name__ == '__main__':
         FREEZER = Freezer(APP)
         FREEZER.freeze()
     else:
-        APP.run(port=8000)
+        extra_dirs = [join('sites', SITE, 'pages')]
+        extra_files = extra_dirs[:]
+        for extra_dir in extra_dirs:
+            for dirname, dirs, files in walk(extra_dir):
+                for filename in files:
+                    filename = join(dirname, filename)
+                    if isfile(filename):
+                        extra_files.append(filename)
+        APP.run(port=8000, debug=True, extra_files=extra_files)
